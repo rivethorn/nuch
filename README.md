@@ -1,0 +1,1 @@
+# NUxt Content Handler
