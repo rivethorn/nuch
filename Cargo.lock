@@ -444,7 +444,7 @@ dependencies = [
 
 [[package]]
 name = "nuch"
-version = "0.1.0"
+version = "0.3.8"
 dependencies = [
  "clap",
  "cursive",
