@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use cursive::{
     View,
-    view::Resizable,
+    view::{Resizable, Scrollable},
     views::{Dialog, DummyView, LinearLayout, SelectView},
 };
 use cursive_hjkl::HjklToDirectionWrapperView;
@@ -35,9 +35,17 @@ pub fn run_tui(blogs: Vec<PathBuf>, content: Vec<PathBuf>) {
     siv.add_layer(hjkl(
         Dialog::around(
             LinearLayout::horizontal()
-                .child(Dialog::around(published).title("Published Posts"))
+                .child(
+                    Dialog::around(published)
+                        .title("Published Posts")
+                        .scrollable(),
+                )
                 .child(DummyView.fixed_width(4))
-                .child(Dialog::around(publishable).title("Publishable Posts"))
+                .child(
+                    Dialog::around(publishable)
+                        .title("Publishable Posts")
+                        .scrollable(),
+                )
                 .min_height(10),
         )
         .title("NUxt Content Handler")
