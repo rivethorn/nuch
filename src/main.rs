@@ -27,6 +27,8 @@ enum Command {
 struct Config {
     working_dir: String,
     publishing_dir: String,
+    working_images_dir: Option<String>,
+    publishing_images_dir: Option<String>,
 }
 
 /// Determine the path to the config file.
@@ -75,6 +77,8 @@ fn load_config(generate: bool) -> Result<Option<(PathBuf, PathBuf)>> {
             let sample = Config {
                 working_dir: "Documents/writings".to_string(),
                 publishing_dir: "your-site/content".to_string(),
+                working_images_dir: Some("Documents/writings/images".to_string()),
+                publishing_images_dir: Some("your-site/public/images".to_string()),
             };
             let toml_str = toml::to_string_pretty(&sample)?;
             let mut f = fs::File::create(&config_path)?;
