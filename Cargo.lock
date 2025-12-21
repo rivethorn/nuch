@@ -281,7 +281,7 @@ dependencies = [
 
 [[package]]
 name = "nuch"
-version = "0.4.8"
+version = "0.5.8"
 dependencies = [
  "anyhow",
  "clap",
