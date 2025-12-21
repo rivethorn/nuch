@@ -398,14 +398,22 @@ fn publish_selected(selected: &std::path::Path, paths: &AppPaths) -> Result<()> 
         }
     }
 
+    // Show summary of files to be committed
+    println!("About to commit the following files:");
+    for f in &created {
+        println!("  {}", f.display());
+    }
+
     // Determine site root and run git steps
     let site_root = get_site_root(&paths.published);
     if let Err(e) = run_git_steps(&site_root, &format!("Add {} to blog", filename)) {
-        // rollback copies
-        for f in &created {
-            let _ = fs::remove_file(f);
+        // attempt rollback of copied files
+        let failures = rollback_remove_files(&created);
+        if failures.is_empty() {
+            return Err(e);
+        } else {
+            return Err(anyhow::anyhow!("{}; rollback failures: {}", e, failures.join("; ")));
         }
-        return Err(e);
     }
 
     println!("Published {} successfully", filename);
@@ -428,7 +436,6 @@ fn delete_selected(selected: &std::path::Path, paths: &AppPaths) -> Result<()> {
     // Check if markdown exists in working dir
     let working_md = paths.ready.join(filename);
     let mut backup_files: Vec<PathBuf> = Vec::new();
-    let mut backup_made = false;
 
     if !working_md.exists() {
         // Prompt for backup
@@ -441,7 +448,6 @@ fn delete_selected(selected: &std::path::Path, paths: &AppPaths) -> Result<()> {
             fs::create_dir_all(&paths.ready)?;
             let copied = copy_file_to(&selected.to_path_buf(), &paths.ready)?;
             backup_files.push(copied.clone());
-            backup_made = true;
 
             // Copy images if possible
             if let (Some(pub_imgs), Some(work_imgs)) =
@@ -496,36 +502,41 @@ fn delete_selected(selected: &std::path::Path, paths: &AppPaths) -> Result<()> {
         }
     }
 
-    // Delete files (stop on first error)
+    // If the working copy did not exist and the user agreed earlier, we have copied files into working dir
+    // (those are in `backup_files` already). We will also make a temp backup of the to_delete files so we can restore
+    // them if git steps fail.
+    let (backup_dir, backups) = backup_files_to_temp(&to_delete)?;
+
+    println!("About to delete the following files:");
+    for p in &to_delete {
+        println!("  {}", p.display());
+    }
+    println!("Backups created at: {}", backup_dir.display());
+
+    // Delete files (stop on first error) — if deletion fails, restore from backups and abort
     for p in &to_delete {
         if p.exists() {
-            fs::remove_file(p)
-                .map_err(|e| anyhow::anyhow!("Failed to remove {}: {}", p.display(), e))?;
+            if let Err(e) = fs::remove_file(p) {
+                let _ = restore_from_backups(&backups);
+                cleanup_backup_dir(&backup_dir);
+                return Err(anyhow::anyhow!("Failed to remove {}: {}", p.display(), e));
+            }
         }
     }
 
     // Run git steps
     let site_root = get_site_root(&paths.published);
     if let Err(e) = run_git_steps(&site_root, &format!("Remove {} from blog", filename)) {
-        // try to restore deleted files if we made a backup
-        if backup_made {
-            for f in &backup_files {
-                let name = f.file_name().unwrap();
-                let restore_dest = paths.published.join(name);
-                if restore_dest.exists() {
-                    continue;
-                }
-                if let Err(rerr) = fs::copy(f, &restore_dest) {
-                    eprintln!(
-                        "Failed to restore {} from backup: {}",
-                        restore_dest.display(),
-                        rerr
-                    );
-                }
-            }
+        // try to restore deleted files from backups
+        if let Err(rest_err) = restore_from_backups(&backups) {
+            eprintln!("Failed to restore from backups: {}", rest_err);
         }
+        cleanup_backup_dir(&backup_dir);
         return Err(e);
     }
+
+    // On success, cleanup backups
+    cleanup_backup_dir(&backup_dir);
 
     println!("Deleted {} and corresponding images", filename);
     Ok(())
@@ -594,6 +605,62 @@ fn run_git_steps(site_root: &PathBuf, commit_msg: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+// Attempt to remove files and collect any failures; returns Vec of error strings (empty if all removed)
+fn rollback_remove_files(created: &[PathBuf]) -> Vec<String> {
+    let mut failures = Vec::new();
+    for f in created {
+        if f.exists() {
+            if let Err(e) = fs::remove_file(f) {
+                failures.push(format!("Failed to remove {}: {}", f.display(), e));
+            }
+        }
+    }
+    failures
+}
+
+// Backup a set of files into a temp directory; returns (backup_dir, vec of (orig, backup)) on success
+fn backup_files_to_temp(files: &[PathBuf]) -> Result<(PathBuf, Vec<(PathBuf, PathBuf)>)> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let ts = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
+    let mut tmp = std::env::temp_dir();
+    tmp.push(format!("nuch-delete-{}", ts));
+    fs::create_dir_all(&tmp)?;
+
+    let mut pairs = Vec::new();
+    for orig in files {
+        if !orig.exists() {
+            continue;
+        }
+        let dest = tmp.join(orig.file_name().unwrap());
+        fs::copy(orig, &dest).map_err(|e| anyhow::anyhow!("Failed to backup {}: {}", orig.display(), e))?;
+        pairs.push((orig.clone(), dest));
+    }
+
+    Ok((tmp, pairs))
+}
+
+// Restore from backup pairs (orig, backup) — copies backup -> orig
+fn restore_from_backups(pairs: &[(PathBuf, PathBuf)]) -> Result<()> {
+    for (orig, backup) in pairs {
+        if backup.exists() {
+            fs::copy(backup, orig).map_err(|e| anyhow::anyhow!("Failed to restore {}: {}", orig.display(), e))?;
+        }
+    }
+    Ok(())
+}
+
+// Remove a backup dir and its contents (best-effort)
+fn cleanup_backup_dir(dir: &PathBuf) {
+    if dir.exists() && dir.is_dir() {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+        let _ = fs::remove_dir(dir);
+    }
 }
 
 /// Return list of image files in `dir` whose name starts with `stem_lower` (case-insensitive) and end with known image extensions.
