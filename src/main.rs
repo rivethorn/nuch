@@ -109,55 +109,64 @@ fn list_blogs(dir: &std::path::Path) -> Result<()> {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    // Defaults (relative to home directory)
-    let mut ready = "Documents/blog".to_string();
-    let mut published = "Documents/GitHub/hq/content/writings".to_string();
-
-    if let Some(config_path) = config_file_path() {
-        let config_dir = config_path.parent().unwrap();
-        if args.generate_config {
-            // create config dir if needed
-            fs::create_dir_all(config_dir)?;
-            if config_path.exists() {
-                println!("Config already exists at {}", config_path.display());
+    let config_path = match config_file_path() {
+        Some(p) => p,
+        None => {
+            if args.generate_config {
+                eprintln!("Could not determine config directory on this platform.");
+                return Ok(());
             } else {
-                let sample = Config {
-                    working_dir: ready.clone(),
-                    publishing_dir: published.clone(),
-                };
-                let toml_str = toml::to_string_pretty(&sample)?;
-                let mut f = fs::File::create(&config_path)?;
-                f.write_all(toml_str.as_bytes())?;
-                println!("Wrote sample config to {}", config_path.display());
+                return Err(anyhow::anyhow!(
+                    "Could not determine config directory on this platform. Use --config to create a sample."
+                ));
             }
-            return Ok(());
         }
+    };
 
-        // If config exists try to parse it and override defaults
+    let config_dir = config_path.parent().unwrap();
+
+    if args.generate_config {
+        // create config dir if needed
+        fs::create_dir_all(config_dir)?;
         if config_path.exists() {
-            match fs::read_to_string(&config_path) {
-                Ok(s) => match toml::from_str::<Config>(&s) {
-                    Ok(cfg) => {
-                        if !cfg.working_dir.trim().is_empty() {
-                            ready = cfg.working_dir;
-                        }
-                        if !cfg.publishing_dir.trim().is_empty() {
-                            published = cfg.publishing_dir;
-                        }
-                    }
-                    Err(e) => eprintln!("Failed to parse config: {}. Using defaults.", e),
-                },
-                Err(e) => eprintln!("Failed to read config: {}. Using defaults.", e),
-            }
+            println!("Config already exists at {}", config_path.display());
+        } else {
+            let sample = Config {
+                working_dir: "Documents/writings".to_string(),
+                publishing_dir: "your-site/content".to_string(),
+            };
+            let toml_str = toml::to_string_pretty(&sample)?;
+            let mut f = fs::File::create(&config_path)?;
+            f.write_all(toml_str.as_bytes())?;
+            println!("Wrote sample config to {}", config_path.display());
         }
-    } else if args.generate_config {
-        eprintln!("Could not determine config directory on this platform.");
         return Ok(());
     }
 
+    // Require config file to exist
+    if !config_path.exists() {
+        return Err(anyhow::anyhow!(
+            "Config file not found at {}. Run with --config to create one.",
+            config_path.display()
+        ));
+    }
+
+    // Read and parse config (fatal on error)
+    let s = fs::read_to_string(&config_path)
+        .map_err(|e| anyhow::anyhow!("Failed to read config {}: {}", config_path.display(), e))?;
+    let cfg: Config = toml::from_str(&s)
+        .map_err(|e| anyhow::anyhow!("Failed to parse config {}: {}", config_path.display(), e))?;
+
+    if cfg.working_dir.trim().is_empty() {
+        return Err(anyhow::anyhow!("'working_dir' in config is empty."));
+    }
+    if cfg.publishing_dir.trim().is_empty() {
+        return Err(anyhow::anyhow!("'publishing_dir' in config is empty."));
+    }
+
     // Resolve into absolute paths
-    let ready_path = resolve_dir(&ready);
-    let published_path = resolve_dir(&published);
+    let ready_path = resolve_dir(&cfg.working_dir);
+    let published_path = resolve_dir(&cfg.publishing_dir);
 
     match args.command {
         Command::Publish => list_blogs(&ready_path)?,
