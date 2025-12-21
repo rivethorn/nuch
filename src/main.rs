@@ -42,6 +42,105 @@ fn config_file_path() -> Option<PathBuf> {
     None
 }
 
+/// Load, validate, and (optionally) generate the config file.
+///
+/// Returns Ok(None) if `generate` was true and a sample config was written (caller should exit).
+/// Returns Ok(Some((ready_path, published_path))) when config is present, parsed and validated.
+fn load_config(generate: bool) -> Result<Option<(PathBuf, PathBuf)>> {
+    let config_path = match config_file_path() {
+        Some(p) => p,
+        None => {
+            if generate {
+                eprintln!("Could not determine config directory on this platform.");
+                return Ok(None);
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Could not determine config directory on this platform. Use --config to create a sample."
+                ));
+            }
+        }
+    };
+
+    let config_dir = config_path.parent().unwrap();
+
+    if generate {
+        // create config dir if needed
+        fs::create_dir_all(config_dir)?;
+        if config_path.exists() {
+            println!("Config already exists at {}", config_path.display());
+        } else {
+            let sample = Config {
+                working_dir: "Documents/writings".to_string(),
+                publishing_dir: "your-site/content".to_string(),
+            };
+            let toml_str = toml::to_string_pretty(&sample)?;
+            let mut f = fs::File::create(&config_path)?;
+            f.write_all(toml_str.as_bytes())?;
+            println!("Wrote sample config to {}", config_path.display());
+        }
+        return Ok(None);
+    }
+
+    // Require config file to exist
+    if !config_path.exists() {
+        return Err(anyhow::anyhow!(
+            "Config file not found at {}. Run with --config to create one.",
+            config_path.display()
+        ));
+    }
+
+    // Read and parse config (fatal on error)
+    let s = fs::read_to_string(&config_path)
+        .map_err(|e| anyhow::anyhow!("Failed to read config {}: {}", config_path.display(), e))?;
+    let cfg: Config = toml::from_str(&s)
+        .map_err(|e| anyhow::anyhow!("Failed to parse config {}: {}", config_path.display(), e))?;
+
+    if cfg.working_dir.trim().is_empty() {
+        return Err(anyhow::anyhow!("'working_dir' in config is empty."));
+    }
+    if cfg.publishing_dir.trim().is_empty() {
+        return Err(anyhow::anyhow!("'publishing_dir' in config is empty."));
+    }
+
+    // Resolve into absolute paths
+    let ready_path = resolve_dir(&cfg.working_dir);
+    let published_path = resolve_dir(&cfg.publishing_dir);
+
+    // Validate that the configured directories exist and contain Markdown files
+    let mut errs: Vec<String> = Vec::new();
+
+    match dir_has_markdown(&ready_path) {
+        Ok(true) => {}
+        Ok(false) => errs.push(format!(
+            "No Markdown files found in working_dir: {}",
+            ready_path.display()
+        )),
+        Err(e) => errs.push(format!(
+            "Failed to read working_dir {}: {}",
+            ready_path.display(),
+            e
+        )),
+    }
+
+    match dir_has_markdown(&published_path) {
+        Ok(true) => {}
+        Ok(false) => errs.push(format!(
+            "No Markdown files found in publishing_dir: {}",
+            published_path.display()
+        )),
+        Err(e) => errs.push(format!(
+            "Failed to read publishing_dir {}: {}",
+            published_path.display(),
+            e
+        )),
+    }
+
+    if !errs.is_empty() {
+        return Err(anyhow::anyhow!(errs.join("; ")));
+    }
+
+    Ok(Some((ready_path, published_path)))
+}
 fn resolve_dir(dir: &str) -> PathBuf {
     let p = Path::new(dir);
     if p.is_absolute() {
@@ -127,97 +226,13 @@ fn list_blogs(dir: &std::path::Path) -> Result<()> {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    let config_path = match config_file_path() {
-        Some(p) => p,
-        None => {
-            if args.generate_config {
-                eprintln!("Could not determine config directory on this platform.");
-                return Ok(());
-            } else {
-                return Err(anyhow::anyhow!(
-                    "Could not determine config directory on this platform. Use --config to create a sample."
-                ));
-            }
-        }
-    };
-
-    let config_dir = config_path.parent().unwrap();
-
-    if args.generate_config {
-        // create config dir if needed
-        fs::create_dir_all(config_dir)?;
-        if config_path.exists() {
-            println!("Config already exists at {}", config_path.display());
-        } else {
-            let sample = Config {
-                working_dir: "Documents/writings".to_string(),
-                publishing_dir: "your-site/content".to_string(),
-            };
-            let toml_str = toml::to_string_pretty(&sample)?;
-            let mut f = fs::File::create(&config_path)?;
-            f.write_all(toml_str.as_bytes())?;
-            println!("Wrote sample config to {}", config_path.display());
-        }
+    let paths = load_config(args.generate_config)?;
+    if paths.is_none() {
+        // generation mode: sample config written (or couldn't determine path and we already printed an error)
         return Ok(());
     }
 
-    // Require config file to exist
-    if !config_path.exists() {
-        return Err(anyhow::anyhow!(
-            "Config file not found at {}. Run with --config to create one.",
-            config_path.display()
-        ));
-    }
-
-    // Read and parse config (fatal on error)
-    let s = fs::read_to_string(&config_path)
-        .map_err(|e| anyhow::anyhow!("Failed to read config {}: {}", config_path.display(), e))?;
-    let cfg: Config = toml::from_str(&s)
-        .map_err(|e| anyhow::anyhow!("Failed to parse config {}: {}", config_path.display(), e))?;
-
-    if cfg.working_dir.trim().is_empty() {
-        return Err(anyhow::anyhow!("'working_dir' in config is empty."));
-    }
-    if cfg.publishing_dir.trim().is_empty() {
-        return Err(anyhow::anyhow!("'publishing_dir' in config is empty."));
-    }
-
-    // Resolve into absolute paths
-    let ready_path = resolve_dir(&cfg.working_dir);
-    let published_path = resolve_dir(&cfg.publishing_dir);
-
-    // Validate that the configured directories exist and contain Markdown files
-    let mut errs: Vec<String> = Vec::new();
-
-    match dir_has_markdown(&ready_path) {
-        Ok(true) => {}
-        Ok(false) => errs.push(format!(
-            "No Markdown files found in working_dir: {}",
-            ready_path.display()
-        )),
-        Err(e) => errs.push(format!(
-            "Failed to read working_dir {}: {}",
-            ready_path.display(),
-            e
-        )),
-    }
-
-    match dir_has_markdown(&published_path) {
-        Ok(true) => {}
-        Ok(false) => errs.push(format!(
-            "No Markdown files found in publishing_dir: {}",
-            published_path.display()
-        )),
-        Err(e) => errs.push(format!(
-            "Failed to read publishing_dir {}: {}",
-            published_path.display(),
-            e
-        )),
-    }
-
-    if !errs.is_empty() {
-        return Err(anyhow::anyhow!(errs.join("; ")));
-    }
+    let (ready_path, published_path) = paths.unwrap();
 
     match args.command {
         Some(Command::Publish) => list_blogs(&ready_path)?,
