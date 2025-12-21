@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use inquire::Select;
+use inquire::{Confirm, Select};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
@@ -56,7 +56,6 @@ struct AppPaths {
 }
 
 /// Load, validate, and (optionally) generate the config file.
-///
 /// Returns Ok(None) if `generate` was true and a sample config was written (caller should exit).
 /// Returns Ok(Some(AppPaths)) when config is present, parsed and validated.
 fn load_config(generate: bool) -> Result<Option<AppPaths>> {
@@ -307,8 +306,7 @@ fn main() -> Result<()> {
         }
         Some(Command::Delete) => {
             if let Some(selected) = list_blogs(&app_paths.published, None)? {
-                // delete behavior not implemented yet — keep preview for now
-                perform_action(&selected)?;
+                delete_selected(&selected, &app_paths)?;
             }
         }
         None => {
@@ -411,35 +409,158 @@ fn publish_selected(selected: &std::path::Path, paths: &AppPaths) -> Result<()> 
         }
     }
 
-    // Determine site root: find ancestor named 'content' and then take its parent
-    let mut site_root = paths.published.clone();
-    let mut found = false;
-    for anc in paths.published.ancestors() {
+    // Determine site root and run git steps
+    let site_root = get_site_root(&paths.published);
+    if let Err(e) = run_git_steps(&site_root, &format!("Add {} to blog", filename)) {
+        // rollback copies
+        for f in &created {
+            let _ = fs::remove_file(f);
+        }
+        return Err(e);
+    }
+
+    println!("Published {} successfully", filename);
+    Ok(())
+}
+
+/// Delete a selected published blog and its images. Optionally backup to working dirs first.
+fn delete_selected(selected: &std::path::Path, paths: &AppPaths) -> Result<()> {
+    let filename = selected
+        .file_name()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| anyhow::anyhow!("Invalid filename"))?;
+
+    let stem = selected
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| anyhow::anyhow!("Invalid filename stem"))?;
+    let stem_lower = stem.to_lowercase();
+
+    // Check if markdown exists in working dir
+    let working_md = paths.ready.join(filename);
+    let mut backup_files: Vec<PathBuf> = Vec::new();
+    let mut backup_made = false;
+
+    if !working_md.exists() {
+        // Prompt for backup
+        let ask = format!(
+            "'{}' not found in working dir. Create backup in working dir?",
+            filename
+        );
+        if Confirm::new(&ask).with_default(true).prompt()? {
+            // Copy markdown
+            fs::create_dir_all(&paths.ready)?;
+            let copied = copy_file_to(&selected.to_path_buf(), &paths.ready)?;
+            backup_files.push(copied.clone());
+            backup_made = true;
+
+            // Copy images if possible
+            if let (Some(pub_imgs), Some(work_imgs)) =
+                (&paths.publishing_images, &paths.working_images)
+            {
+                let images = matching_images_for_stem(&stem_lower, pub_imgs)?;
+                if !images.is_empty() {
+                    fs::create_dir_all(work_imgs)?;
+                    for img in images.iter() {
+                        let dest = work_imgs.join(img.file_name().unwrap());
+                        if dest.exists() {
+                            // abort and attempt to clean up copied files
+                            for f in &backup_files {
+                                let _ = fs::remove_file(f);
+                            }
+                            return Err(anyhow::anyhow!(
+                                "Backup target already exists: {}",
+                                dest.display()
+                            ));
+                        }
+                        fs::copy(img, &dest).map_err(|e| {
+                            for f in &backup_files {
+                                let _ = fs::remove_file(f);
+                            }
+                            anyhow::anyhow!(
+                                "Failed to copy image {} to {}: {}",
+                                img.display(),
+                                dest.display(),
+                                e
+                            )
+                        })?;
+                        backup_files.push(dest);
+                    }
+                }
+            }
+
+            println!("Backup created in {}", paths.ready.display());
+        } else {
+            println!("Proceeding without backup.");
+        }
+    } else {
+        println!("File exists in working dir; skipping backup.");
+    }
+
+    // Gather list of images to delete in publishing_images
+    let mut to_delete: Vec<PathBuf> = Vec::new();
+    to_delete.push(selected.to_path_buf());
+    if let Some(pub_imgs) = &paths.publishing_images {
+        let images = matching_images_for_stem(&stem_lower, pub_imgs)?;
+        for img in images {
+            to_delete.push(img);
+        }
+    }
+
+    // Delete files (stop on first error)
+    for p in &to_delete {
+        if p.exists() {
+            fs::remove_file(p)
+                .map_err(|e| anyhow::anyhow!("Failed to remove {}: {}", p.display(), e))?;
+        }
+    }
+
+    // Run git steps
+    let site_root = get_site_root(&paths.published);
+    if let Err(e) = run_git_steps(&site_root, &format!("Remove {} from blog", filename)) {
+        // try to restore deleted files if we made a backup
+        if backup_made {
+            for f in &backup_files {
+                let name = f.file_name().unwrap();
+                let restore_dest = paths.published.join(name);
+                if restore_dest.exists() {
+                    continue;
+                }
+                if let Err(rerr) = fs::copy(f, &restore_dest) {
+                    eprintln!(
+                        "Failed to restore {} from backup: {}",
+                        restore_dest.display(),
+                        rerr
+                    );
+                }
+            }
+        }
+        return Err(e);
+    }
+
+    println!("Deleted {} and corresponding images", filename);
+    Ok(())
+}
+
+fn get_site_root(published: &PathBuf) -> PathBuf {
+    for anc in published.ancestors() {
         if let Some(name) = anc.file_name().and_then(|s| s.to_str()) {
             if name == "content" {
-                site_root = anc.parent().unwrap().to_path_buf();
-                found = true;
-                break;
+                return anc.parent().unwrap().to_path_buf();
             }
         }
     }
-    if !found {
-        // fallback to parent dir
-        site_root = paths.published.parent().unwrap().to_path_buf();
-    }
+    published.parent().unwrap().to_path_buf()
+}
 
-    // Run git commands in site_root
+fn run_git_steps(site_root: &PathBuf, commit_msg: &str) -> Result<()> {
     // Ensure it's a git repo
     let git_check = std::process::Command::new("git")
         .arg("rev-parse")
         .arg("--git-dir")
-        .current_dir(&site_root)
+        .current_dir(site_root)
         .output()?;
     if !git_check.status.success() {
-        // rollback
-        for f in &created {
-            let _ = fs::remove_file(f);
-        }
         return Err(anyhow::anyhow!(
             "Directory {} is not a git repository. git rev-parse failed: {}",
             site_root.display(),
@@ -450,29 +571,22 @@ fn publish_selected(selected: &std::path::Path, paths: &AppPaths) -> Result<()> 
     let git_add = std::process::Command::new("git")
         .arg("add")
         .arg(".")
-        .current_dir(&site_root)
+        .current_dir(site_root)
         .output()?;
     if !git_add.status.success() {
-        for f in &created {
-            let _ = fs::remove_file(f);
-        }
         return Err(anyhow::anyhow!(
             "git add failed: {}",
             String::from_utf8_lossy(&git_add.stderr)
         ));
     }
 
-    let commit_msg = format!("Add {} to blog", filename);
     let git_commit = std::process::Command::new("git")
         .arg("commit")
         .arg("-m")
-        .arg(&commit_msg)
-        .current_dir(&site_root)
+        .arg(commit_msg)
+        .current_dir(site_root)
         .output()?;
     if !git_commit.status.success() {
-        for f in &created {
-            let _ = fs::remove_file(f);
-        }
         return Err(anyhow::anyhow!(
             "git commit failed: {}",
             String::from_utf8_lossy(&git_commit.stderr)
@@ -481,18 +595,73 @@ fn publish_selected(selected: &std::path::Path, paths: &AppPaths) -> Result<()> 
 
     let git_push = std::process::Command::new("git")
         .arg("push")
-        .current_dir(&site_root)
+        .current_dir(site_root)
         .output()?;
     if !git_push.status.success() {
-        for f in &created {
-            let _ = fs::remove_file(f);
-        }
         return Err(anyhow::anyhow!(
             "git push failed: {}",
             String::from_utf8_lossy(&git_push.stderr)
         ));
     }
 
-    println!("Published {} successfully", filename);
+    Ok(())
+}
+
+/// Return list of image files in `dir` whose name starts with `stem_lower` (case-insensitive) and end with known image extensions.
+fn matching_images_for_stem(
+    stem_lower: &str,
+    dir: &std::path::Path,
+) -> Result<Vec<PathBuf>, std::io::Error> {
+    let mut images = Vec::new();
+    if !dir.is_dir() {
+        return Ok(images);
+    }
+    let exts = ["png", "jpg", "jpeg", "gif", "webp", "svg"];
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let p = entry.path();
+        if !p.is_file() {
+            continue;
+        }
+        if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
+            let name_lower = name.to_lowercase();
+            if !name_lower.starts_with(stem_lower) {
+                continue;
+            }
+            if exts.iter().any(|ext| name_lower.ends_with(ext)) {
+                images.push(p);
+            }
+        }
+    }
+    Ok(images)
+}
+
+fn copy_file_to(src: &PathBuf, dst_dir: &PathBuf) -> Result<PathBuf> {
+    fs::create_dir_all(dst_dir)?;
+    let dst = dst_dir.join(src.file_name().unwrap());
+    if dst.exists() {
+        return Err(anyhow::anyhow!(
+            "Destination already exists: {}",
+            dst.display()
+        ));
+    }
+    fs::copy(src, &dst).map_err(|e| {
+        anyhow::anyhow!(
+            "Failed to copy {} to {}: {}",
+            src.display(),
+            dst.display(),
+            e
+        )
+    })?;
+    Ok(dst)
+}
+
+fn remove_files(paths: &[PathBuf]) -> Result<()> {
+    for p in paths {
+        if p.exists() {
+            fs::remove_file(p)
+                .map_err(|e| anyhow::anyhow!("Failed to remove {}: {}", p.display(), e))?;
+        }
+    }
     Ok(())
 }
