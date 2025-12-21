@@ -319,17 +319,6 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn perform_action(path: &std::path::Path) -> Result<()> {
-    println!("Selected: {:?}", path.display());
-    // Example action: read and print content
-    let content = std::fs::read_to_string(path)?;
-    println!(
-        "Content preview:\n{}",
-        content.lines().take(5).collect::<Vec<_>>().join("\n")
-    );
-    Ok(())
-}
-
 /// Copy the selected markdown and associated images (if configured) and run git steps.
 fn publish_selected(selected: &std::path::Path, paths: &AppPaths) -> Result<()> {
     let filename = selected
