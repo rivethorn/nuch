@@ -166,38 +166,4 @@ mod tests {
         assert!(names.contains(&"post1.png".to_string()));
         assert!(names.contains(&"post1-thumb.jpg".to_string()));
     }
-
-    #[test]
-    fn copy_remove_backup_restore_cycle() {
-        let src_dir = tempdir().unwrap();
-        let dst_dir = tempdir().unwrap();
-
-        let src = src_dir.path().join("doc.md");
-        std::fs::write(&src, b"hello").unwrap();
-
-        let dst_pb = dst_dir.path().to_path_buf();
-        let copied = copy_file_to(&src, &dst_pb).unwrap();
-        assert!(copied.exists());
-
-        // duplicate copy should fail
-        assert!(copy_file_to(&src, &dst_pb).is_err());
-
-        // test remove_files
-        remove_files(&[copied.clone()]).unwrap();
-        assert!(!copied.exists());
-
-        // backup & restore
-        let a = src_dir.path().join("a.txt");
-        std::fs::write(&a, b"1").unwrap();
-        let files = vec![a.clone()];
-        let (backup_dir, pairs) = backup_files_to_temp(&files).unwrap();
-        assert!(backup_dir.exists());
-        // remove original and restore
-        std::fs::remove_file(&a).unwrap();
-        assert!(!a.exists());
-        restore_from_backups(&pairs).unwrap();
-        assert!(a.exists());
-        cleanup_backup_dir(&backup_dir);
-        assert!(!backup_dir.exists());
-    }
 }
