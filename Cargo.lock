@@ -303,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "nuch"
-version = "0.6.6"
+version = "0.6.6-alpha"
 dependencies = [
  "anyhow",
  "clap",
