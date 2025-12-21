@@ -1,6 +1,6 @@
 [package]
 name = "nuch"
-version = "0.8.1-alpha"
+version = "0.8.2-alpha"
 edition = "2024"
 
 [dependencies]
@@ -9,7 +9,6 @@ anyhow = "1.0.100"
 clap = { version = "4.5.53", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.9.8"
-regex = "1"
 
 [dev-dependencies]
 tempfile = "3"
