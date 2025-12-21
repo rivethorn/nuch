@@ -29,6 +29,9 @@ struct Config {
     publishing_dir: String,
 }
 
+/// Determine the path to the config file.
+/// Returns None if the config directory cannot be determined.
+/// Uses XDG_CONFIG_HOME or falls back to ~/.config/nuch/config.toml on failure.
 fn config_file_path() -> Option<PathBuf> {
     // Prefer XDG_CONFIG_HOME if set, otherwise fall back to ~/.config/nuch/config.toml
     if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
@@ -141,6 +144,10 @@ fn load_config(generate: bool) -> Result<Option<(PathBuf, PathBuf)>> {
 
     Ok(Some((ready_path, published_path)))
 }
+
+/// Resolve a directory path, expanding '~' to home if needed.
+/// Returns an absolute PathBuf.
+/// If the input is already absolute, it is returned as-is.
 fn resolve_dir(dir: &str) -> PathBuf {
     let p = Path::new(dir);
     if p.is_absolute() {
@@ -151,6 +158,9 @@ fn resolve_dir(dir: &str) -> PathBuf {
     }
 }
 
+/// Check if the specified directory contains any Markdown (.md) files.
+/// Returns Ok(true) if at least one Markdown file is found, Ok(false) if none are found,
+/// or an Err if there was an I/O error accessing the directory.
 fn dir_has_markdown(dir: &std::path::Path) -> Result<bool, std::io::Error> {
     if !dir.is_dir() {
         return Ok(false);
@@ -166,6 +176,8 @@ fn dir_has_markdown(dir: &std::path::Path) -> Result<bool, std::io::Error> {
 }
 
 /// List Markdown files in the specified directory and prompt user to select one.
+/// Performs an action on the selected file.
+/// Returns Ok(()) on success, or an Err on failure.
 fn list_blogs(dir: &std::path::Path) -> Result<()> {
     let dir = dir;
 
