@@ -15,7 +15,7 @@ struct Args {
     generate_config: bool,
 
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(clap::Subcommand)]
@@ -169,8 +169,13 @@ fn main() -> Result<()> {
     let published_path = resolve_dir(&cfg.publishing_dir);
 
     match args.command {
-        Command::Publish => list_blogs(&ready_path)?,
-        Command::Delete => list_blogs(&published_path)?,
+        Some(Command::Publish) => list_blogs(&ready_path)?,
+        Some(Command::Delete) => list_blogs(&published_path)?,
+        None => {
+            return Err(anyhow::anyhow!(
+                "No command provided. Use 'publish' or 'delete'."
+            ));
+        }
     }
 
     Ok(())
