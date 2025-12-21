@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use directories::ProjectDirs;
 use inquire::Select;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -31,11 +30,16 @@ struct Config {
 }
 
 fn config_file_path() -> Option<PathBuf> {
-    if let Some(proj) = ProjectDirs::from("", "", "nuch") {
-        Some(proj.config_dir().join("config.toml"))
-    } else {
-        None
+    // Prefer XDG_CONFIG_HOME if set, otherwise fall back to ~/.config/nuch/config.toml
+    if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
+        return Some(PathBuf::from(xdg).join("nuch").join("config.toml"));
     }
+
+    if let Some(home) = home_dir() {
+        return Some(home.join(".config").join("nuch").join("config.toml"));
+    }
+
+    None
 }
 
 fn resolve_dir(dir: &str) -> PathBuf {
