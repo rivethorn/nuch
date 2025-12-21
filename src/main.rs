@@ -47,11 +47,19 @@ fn config_file_path() -> Option<PathBuf> {
     None
 }
 
+/// Resolved application paths returned from loading the config.
+struct AppPaths {
+    ready: PathBuf,
+    published: PathBuf,
+    working_images: Option<PathBuf>,
+    publishing_images: Option<PathBuf>,
+}
+
 /// Load, validate, and (optionally) generate the config file.
 ///
 /// Returns Ok(None) if `generate` was true and a sample config was written (caller should exit).
-/// Returns Ok(Some((ready_path, published_path))) when config is present, parsed and validated.
-fn load_config(generate: bool) -> Result<Option<(PathBuf, PathBuf)>> {
+/// Returns Ok(Some(AppPaths)) when config is present, parsed and validated.
+fn load_config(generate: bool) -> Result<Option<AppPaths>> {
     let config_path = match config_file_path() {
         Some(p) => p,
         None => {
@@ -113,6 +121,15 @@ fn load_config(generate: bool) -> Result<Option<(PathBuf, PathBuf)>> {
     let ready_path = resolve_dir(&cfg.working_dir);
     let published_path = resolve_dir(&cfg.publishing_dir);
 
+    let working_images = match &cfg.working_images_dir {
+        Some(s) => Some(resolve_dir(s)),
+        None => None,
+    };
+    let publishing_images = match &cfg.publishing_images_dir {
+        Some(s) => Some(resolve_dir(s)),
+        None => None,
+    };
+
     // Validate that the configured directories exist and contain Markdown files
     let mut errs: Vec<String> = Vec::new();
 
@@ -142,11 +159,34 @@ fn load_config(generate: bool) -> Result<Option<(PathBuf, PathBuf)>> {
         )),
     }
 
+    // If image dirs are set, ensure they at least exist as directories
+    if let Some(ref p) = working_images {
+        if !p.is_dir() {
+            errs.push(format!(
+                "working_images_dir does not exist or is not a directory: {}",
+                p.display()
+            ));
+        }
+    }
+    if let Some(ref p) = publishing_images {
+        if !p.is_dir() {
+            errs.push(format!(
+                "publishing_images_dir does not exist or is not a directory: {}",
+                p.display()
+            ));
+        }
+    }
+
     if !errs.is_empty() {
         return Err(anyhow::anyhow!(errs.join("; ")));
     }
 
-    Ok(Some((ready_path, published_path)))
+    Ok(Some(AppPaths {
+        ready: ready_path,
+        published: published_path,
+        working_images,
+        publishing_images,
+    }))
 }
 
 /// Resolve a directory path, expanding '~' to home if needed.
@@ -180,17 +220,27 @@ fn dir_has_markdown(dir: &std::path::Path) -> Result<bool, std::io::Error> {
 }
 
 /// List Markdown files in the specified directory and prompt user to select one.
-/// Performs an action on the selected file.
-/// Returns Ok(()) on success, or an Err on failure.
-fn list_blogs(dir: &std::path::Path) -> Result<()> {
-    let dir = dir;
-
+/// If `exclude_dir` is provided, files that already exist (by filename) in that directory
+/// will be omitted from the list (used when publishing so we don't show already published files).
+/// Returns Ok(Some(PathBuf)) with the selected file, Ok(None) if the user cancelled, or an Err on failure.
+fn list_blogs(
+    dir: &std::path::Path,
+    exclude_dir: Option<&std::path::Path>,
+) -> Result<Option<PathBuf>> {
     let mut markdown_files: Vec<_> = Vec::new();
     if dir.is_dir() {
         for entry in std::fs::read_dir(&dir)? {
             let entry = entry?;
             let path = entry.path();
             if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
+                // If exclude_dir provided, skip files whose name exists in exclude_dir
+                if let Some(ex) = exclude_dir {
+                    let dest = ex.join(path.file_name().unwrap());
+                    if dest.exists() {
+                        // skip already-published file
+                        continue;
+                    }
+                }
                 markdown_files.push(path);
             }
         }
@@ -198,7 +248,7 @@ fn list_blogs(dir: &std::path::Path) -> Result<()> {
 
     if markdown_files.is_empty() {
         println!("No Markdown files found.");
-        return Ok(());
+        return Ok(None);
     }
 
     let names: Vec<_> = markdown_files
@@ -219,7 +269,7 @@ fn list_blogs(dir: &std::path::Path) -> Result<()> {
         Some(name) => name,
         None => {
             println!("Cancelled.");
-            return Ok(());
+            return Ok(None);
         }
     };
 
@@ -234,9 +284,8 @@ fn list_blogs(dir: &std::path::Path) -> Result<()> {
         })
         .expect("Selected file should exist");
 
-    let selected_path = &markdown_files[selected_index];
-    perform_action(selected_path)?;
-    Ok(())
+    let selected_path = markdown_files[selected_index].clone();
+    Ok(Some(selected_path))
 }
 
 fn main() -> Result<()> {
@@ -248,11 +297,20 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let (ready_path, published_path) = paths.unwrap();
+    let app_paths = paths.unwrap();
 
     match args.command {
-        Some(Command::Publish) => list_blogs(&ready_path)?,
-        Some(Command::Delete) => list_blogs(&published_path)?,
+        Some(Command::Publish) => {
+            if let Some(selected) = list_blogs(&app_paths.ready, Some(&app_paths.published))? {
+                publish_selected(&selected, &app_paths)?;
+            }
+        }
+        Some(Command::Delete) => {
+            if let Some(selected) = list_blogs(&app_paths.published, None)? {
+                // delete behavior not implemented yet — keep preview for now
+                perform_action(&selected)?;
+            }
+        }
         None => {
             return Err(anyhow::anyhow!(
                 "No command provided. Use 'publish' or 'delete'."
@@ -271,5 +329,170 @@ fn perform_action(path: &std::path::Path) -> Result<()> {
         "Content preview:\n{}",
         content.lines().take(5).collect::<Vec<_>>().join("\n")
     );
+    Ok(())
+}
+
+/// Copy the selected markdown and associated images (if configured) and run git steps.
+fn publish_selected(selected: &std::path::Path, paths: &AppPaths) -> Result<()> {
+    let filename = selected
+        .file_name()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| anyhow::anyhow!("Invalid filename"))?;
+
+    // Destination markdown path
+    let dest_md = paths.published.join(filename);
+    if dest_md.exists() {
+        return Err(anyhow::anyhow!(
+            "Destination markdown already exists: {}",
+            dest_md.display()
+        ));
+    }
+
+    // Copy markdown
+    fs::create_dir_all(&paths.published)?;
+    fs::copy(selected, &dest_md)
+        .map_err(|e| anyhow::anyhow!("Failed to copy markdown to {}: {}", dest_md.display(), e))?;
+
+    // Keep track of created files for rollback
+    let mut created: Vec<PathBuf> = vec![dest_md.clone()];
+
+    // Copy images if configured
+    if let (Some(src_images), Some(dst_images)) = (&paths.working_images, &paths.publishing_images)
+    {
+        // ensure destination directory exists
+        fs::create_dir_all(dst_images)?;
+
+        let stem = selected
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| anyhow::anyhow!("Invalid filename stem"))?;
+
+        let stem_lower = stem.to_lowercase();
+        let img_exts = ["png", "jpg", "jpeg", "gif", "webp", "svg"];
+
+        for entry in fs::read_dir(src_images)? {
+            let entry = entry?;
+            let p = entry.path();
+            if !p.is_file() {
+                continue;
+            }
+            let name = p.file_name().and_then(|s| s.to_str()).unwrap_or_default();
+            let name_lower = name.to_lowercase();
+
+            // check starts with stem and ends with valid extension
+            if !name_lower.starts_with(&stem_lower) {
+                continue;
+            }
+            if !img_exts.iter().any(|ext| name_lower.ends_with(ext)) {
+                continue;
+            }
+
+            let dest_img = dst_images.join(entry.file_name());
+            if dest_img.exists() {
+                // Don't overwrite — abort and rollback
+                // Attempt rollback
+                for f in &created {
+                    let _ = fs::remove_file(f);
+                }
+                return Err(anyhow::anyhow!(
+                    "Image already exists at destination {} — aborting",
+                    dest_img.display()
+                ));
+            }
+
+            fs::copy(&p, &dest_img).map_err(|e| {
+                // rollback files we already created
+                for f in &created {
+                    let _ = fs::remove_file(f);
+                }
+                anyhow::anyhow!("Failed to copy image {}: {}", p.display(), e)
+            })?;
+            created.push(dest_img);
+        }
+    }
+
+    // Determine site root: find ancestor named 'content' and then take its parent
+    let mut site_root = paths.published.clone();
+    let mut found = false;
+    for anc in paths.published.ancestors() {
+        if let Some(name) = anc.file_name().and_then(|s| s.to_str()) {
+            if name == "content" {
+                site_root = anc.parent().unwrap().to_path_buf();
+                found = true;
+                break;
+            }
+        }
+    }
+    if !found {
+        // fallback to parent dir
+        site_root = paths.published.parent().unwrap().to_path_buf();
+    }
+
+    // Run git commands in site_root
+    // Ensure it's a git repo
+    let git_check = std::process::Command::new("git")
+        .arg("rev-parse")
+        .arg("--git-dir")
+        .current_dir(&site_root)
+        .output()?;
+    if !git_check.status.success() {
+        // rollback
+        for f in &created {
+            let _ = fs::remove_file(f);
+        }
+        return Err(anyhow::anyhow!(
+            "Directory {} is not a git repository. git rev-parse failed: {}",
+            site_root.display(),
+            String::from_utf8_lossy(&git_check.stderr)
+        ));
+    }
+
+    let git_add = std::process::Command::new("git")
+        .arg("add")
+        .arg(".")
+        .current_dir(&site_root)
+        .output()?;
+    if !git_add.status.success() {
+        for f in &created {
+            let _ = fs::remove_file(f);
+        }
+        return Err(anyhow::anyhow!(
+            "git add failed: {}",
+            String::from_utf8_lossy(&git_add.stderr)
+        ));
+    }
+
+    let commit_msg = format!("Add {} to blog", filename);
+    let git_commit = std::process::Command::new("git")
+        .arg("commit")
+        .arg("-m")
+        .arg(&commit_msg)
+        .current_dir(&site_root)
+        .output()?;
+    if !git_commit.status.success() {
+        for f in &created {
+            let _ = fs::remove_file(f);
+        }
+        return Err(anyhow::anyhow!(
+            "git commit failed: {}",
+            String::from_utf8_lossy(&git_commit.stderr)
+        ));
+    }
+
+    let git_push = std::process::Command::new("git")
+        .arg("push")
+        .current_dir(&site_root)
+        .output()?;
+    if !git_push.status.success() {
+        for f in &created {
+            let _ = fs::remove_file(f);
+        }
+        return Err(anyhow::anyhow!(
+            "git push failed: {}",
+            String::from_utf8_lossy(&git_push.stderr)
+        ));
+    }
+
+    println!("Published {} successfully", filename);
     Ok(())
 }
