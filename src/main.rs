@@ -412,7 +412,11 @@ fn publish_selected(selected: &std::path::Path, paths: &AppPaths) -> Result<()> 
         if failures.is_empty() {
             return Err(e);
         } else {
-            return Err(anyhow::anyhow!("{}; rollback failures: {}", e, failures.join("; ")));
+            return Err(anyhow::anyhow!(
+                "{}; rollback failures: {}",
+                e,
+                failures.join("; ")
+            ));
         }
     }
 
@@ -634,7 +638,8 @@ fn backup_files_to_temp(files: &[PathBuf]) -> Result<(PathBuf, Vec<(PathBuf, Pat
             continue;
         }
         let dest = tmp.join(orig.file_name().unwrap());
-        fs::copy(orig, &dest).map_err(|e| anyhow::anyhow!("Failed to backup {}: {}", orig.display(), e))?;
+        fs::copy(orig, &dest)
+            .map_err(|e| anyhow::anyhow!("Failed to backup {}: {}", orig.display(), e))?;
         pairs.push((orig.clone(), dest));
     }
 
@@ -645,7 +650,8 @@ fn backup_files_to_temp(files: &[PathBuf]) -> Result<(PathBuf, Vec<(PathBuf, Pat
 fn restore_from_backups(pairs: &[(PathBuf, PathBuf)]) -> Result<()> {
     for (orig, backup) in pairs {
         if backup.exists() {
-            fs::copy(backup, orig).map_err(|e| anyhow::anyhow!("Failed to restore {}: {}", orig.display(), e))?;
+            fs::copy(backup, orig)
+                .map_err(|e| anyhow::anyhow!("Failed to restore {}: {}", orig.display(), e))?;
         }
     }
     Ok(())
