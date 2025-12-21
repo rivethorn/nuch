@@ -4,8 +4,6 @@ version = "0.4.8"
 edition = "2024"
 
 [dependencies]
-clap = "4.5.53"
-cursive = "0.21.1"
-cursive-hjkl = "0.2.0"
-strip-ansi-escapes = "0.2.1"
-toml = "0.9.10"
+inquire = "0.9.1"
+anyhow = "1.0.100"
+clap = { version = "4.5.53", features = ["derive"] }
