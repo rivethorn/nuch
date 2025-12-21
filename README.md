@@ -3,7 +3,7 @@
 A small CLI to help manage Markdown content and associated images for Nuxt Content sites.
 
 ![Static Badge](https://img.shields.io/badge/NUCH-black?style=for-the-badge&logo=markdown)
-![Crates.io Version](https://img.shields.io/crates/v/nuch?style=for-the-badge&logo=rust&labelColor=black&color=black)
+[![Crates.io Version](https://img.shields.io/crates/v/nuch?style=for-the-badge&logo=rust&labelColor=black&color=black)](https://crates.io/crates/nuch)
 
 
 ## Quick start
