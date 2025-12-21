@@ -1,5 +1,67 @@
-# NUxt Content Handler
+# NUCH (NUxt Content Handler)
 
-A simple terminal application to help you manage your Nuxt content files.
+A small CLI to help manage Markdown content and associated images for Nuxt Content sites.
 
-I made this tool to streamline the process of publishing and removing blogs using Content module for my Nuxt projects.
+## Quick start
+
+- Requirements: Rust toolchain (cargo), and system `git` on PATH.
+
+- Build and run:
+
+```bash
+# Build
+cargo build --release
+
+# Run (shows help)
+cargo run -- --help
+
+# Create a sample config (writes to XDG_CONFIG_HOME/nuch/config.toml or ~/.config/nuch/config.toml)
+cargo run -- --config
+```
+
+- Typical usage:
+
+```bash
+# Publish (interactive): selects a markdown file from your configured working dir
+nuch publish
+
+# Delete (interactive): select a published post to remove
+nuch delete
+```
+
+> !WARNING
+> The tool **requires a valid config file** at XDG_CONFIG_HOME/nuch/config.toml or ~/.config/nuch/config.toml. Use `--config` to generate a sample.
+
+## Config file (TOML)
+
+The config describes your working and publishing directories and optional image directories. Example sample written by `--config`:
+
+```toml
+working_dir = "Documents/writings"
+publishing_dir = "your-site/content"
+working_images_dir = "Documents/writings/images"
+publishing_images_dir = "your-site/public/images"
+```
+
+- **working_dir** (required): directory containing your drafts/ready-for-publish Markdown files.
+- **publishing_dir** (required): your predefined collection, usually inside `content` directory (where published markdown should be copied).
+- **working_images_dir** (optional): directory holding images referenced by your working markdown.
+- **publishing_images_dir** (optional): directory under the site where images are stored.
+
+The tool validates that `working_dir` and `publishing_dir` exist and contain at least one `.md` file.
+
+## Development notes
+
+- Main modules:
+
+  - `src/config.rs` — config parsing and validation
+  - `src/fs.rs` — filesystem helpers (copy, backup, image matching)
+  - `src/publish.rs` — publish/delete flows (interactive); includes test-only non-interactive helpers
+  - `src/git.rs` — git wrapper helpers
+  - `src/ui.rs` — user prompts & listing
+
+- Code style: Rust 2024 edition, uses `clap` for CLI and `inquire` for interactive prompts.
+
+## Contributing
+
+Open a PR or issue for bug fixes or feature ideas. Add tests for any changes that touch behavior.
