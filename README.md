@@ -4,6 +4,14 @@ A small CLI to help manage Markdown content and associated images for Nuxt Conte
 
 ## Quick start
 
+You can install via `cargo`:
+
+```bash
+cargo install nuch
+```
+
+### Build from source
+
 - Requirements: Rust toolchain (cargo), and system `git` on PATH.
 
 - Build and run:
@@ -19,7 +27,7 @@ cargo run -- --help
 cargo run -- --config
 ```
 
-- Typical usage:
+## Typical usage:
 
 ```bash
 # Publish (interactive): selects a markdown file from your configured working dir
