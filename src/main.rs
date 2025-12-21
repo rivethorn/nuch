@@ -52,6 +52,20 @@ fn resolve_dir(dir: &str) -> PathBuf {
     }
 }
 
+fn dir_has_markdown(dir: &std::path::Path) -> Result<bool, std::io::Error> {
+    if !dir.is_dir() {
+        return Ok(false);
+    }
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 /// List Markdown files in the specified directory and prompt user to select one.
 fn list_blogs(dir: &std::path::Path) -> Result<()> {
     let dir = dir;
@@ -171,6 +185,37 @@ fn main() -> Result<()> {
     // Resolve into absolute paths
     let ready_path = resolve_dir(&cfg.working_dir);
     let published_path = resolve_dir(&cfg.publishing_dir);
+
+    // Validate that the configured directories exist and contain Markdown files
+    let mut errs: Vec<String> = Vec::new();
+
+    match dir_has_markdown(&ready_path) {
+        Ok(true) => {}
+        Ok(false) => errs.push(format!(
+            "No Markdown files found in working_dir: {}",
+            ready_path.display()
+        )),
+        Err(e) => errs.push(format!(
+            "Failed to read working_dir {}: {}",
+            ready_path.display(), e
+        )),
+    }
+
+    match dir_has_markdown(&published_path) {
+        Ok(true) => {}
+        Ok(false) => errs.push(format!(
+            "No Markdown files found in publishing_dir: {}",
+            published_path.display()
+        )),
+        Err(e) => errs.push(format!(
+            "Failed to read publishing_dir {}: {}",
+            published_path.display(), e
+        )),
+    }
+
+    if !errs.is_empty() {
+        return Err(anyhow::anyhow!(errs.join("; ")));
+    }
 
     match args.command {
         Some(Command::Publish) => list_blogs(&ready_path)?,
