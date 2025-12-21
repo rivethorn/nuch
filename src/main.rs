@@ -197,7 +197,8 @@ fn main() -> Result<()> {
         )),
         Err(e) => errs.push(format!(
             "Failed to read working_dir {}: {}",
-            ready_path.display(), e
+            ready_path.display(),
+            e
         )),
     }
 
@@ -209,7 +210,8 @@ fn main() -> Result<()> {
         )),
         Err(e) => errs.push(format!(
             "Failed to read publishing_dir {}: {}",
-            published_path.display(), e
+            published_path.display(),
+            e
         )),
     }
 
