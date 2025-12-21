@@ -19,7 +19,9 @@ struct Args {
 
 #[derive(clap::Subcommand)]
 enum Command {
+    /// Publish a selected Markdown file from working to publishing directory
     Publish,
+    /// Delete a selected Markdown file from publishing directory
     Delete,
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "nuch"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2024"
 authors = ["Hassan Qasemi"]
 description = "A CLI to manage Markdown content and images for Nuxt Content sites."
