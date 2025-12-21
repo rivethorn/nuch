@@ -1,0 +1,68 @@
+use anyhow::Result;
+use std::path::PathBuf;
+use std::process::Command;
+
+pub fn get_site_root(published: &PathBuf) -> PathBuf {
+    for anc in published.ancestors() {
+        if let Some(name) = anc.file_name().and_then(|s| s.to_str()) {
+            if name == "content" {
+                return anc.parent().unwrap().to_path_buf();
+            }
+        }
+    }
+    published.parent().unwrap().to_path_buf()
+}
+
+pub fn run_git_steps(site_root: &PathBuf, commit_msg: &str) -> Result<()> {
+    // Ensure it's a git repo
+    let git_check = Command::new("git")
+        .arg("rev-parse")
+        .arg("--git-dir")
+        .current_dir(site_root)
+        .output()?;
+    if !git_check.status.success() {
+        return Err(anyhow::anyhow!(
+            "Directory {} is not a git repository. git rev-parse failed: {}",
+            site_root.display(),
+            String::from_utf8_lossy(&git_check.stderr)
+        ));
+    }
+
+    let git_add = Command::new("git")
+        .arg("add")
+        .arg(".")
+        .current_dir(site_root)
+        .output()?;
+    if !git_add.status.success() {
+        return Err(anyhow::anyhow!(
+            "git add failed: {}",
+            String::from_utf8_lossy(&git_add.stderr)
+        ));
+    }
+
+    let git_commit = Command::new("git")
+        .arg("commit")
+        .arg("-m")
+        .arg(commit_msg)
+        .current_dir(site_root)
+        .output()?;
+    if !git_commit.status.success() {
+        return Err(anyhow::anyhow!(
+            "git commit failed: {}",
+            String::from_utf8_lossy(&git_commit.stderr)
+        ));
+    }
+
+    let git_push = Command::new("git")
+        .arg("push")
+        .current_dir(site_root)
+        .output()?;
+    if !git_push.status.success() {
+        return Err(anyhow::anyhow!(
+            "git push failed: {}",
+            String::from_utf8_lossy(&git_push.stderr)
+        ));
+    }
+
+    Ok(())
+}
