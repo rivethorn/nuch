@@ -1,9 +1,12 @@
 [package]
 name = "nuch"
-version = "0.5.9"
+version = "0.6.0"
 edition = "2024"
 
 [dependencies]
 inquire = "0.9.1"
 anyhow = "1.0.100"
 clap = { version = "4.5.53", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.9.8"
+directories = "6.0.0"
