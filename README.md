@@ -2,7 +2,9 @@
 
 A small CLI to help manage Markdown content and associated images for Nuxt Content sites.
 
-![Crates.io Version](https://img.shields.io/crates/v/nuch?style=for-the-badge&logo=rust&color=black&link=https%3A%2F%2Fcrates.io%2Fcrates%2Fnuch)
+![Static Badge](https://img.shields.io/badge/NUCH-black?style=for-the-badge&logo=markdown)
+![Crates.io Version](https://img.shields.io/crates/v/nuch?style=for-the-badge&logo=rust&labelColor=black&color=black)
+
 
 ## Quick start
 
@@ -17,6 +19,8 @@ or you can install prebuilt binaries via shell script
 ```bash
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/rivethorn/nuch/releases/download/v1.0.1/nuch-installer.sh | sh
 ```
+
+You can also donwload the binary from [Releases](https://github.com/rivethorn/nuch/releases)
 
 ### Build from source
 
