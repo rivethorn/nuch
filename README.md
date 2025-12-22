@@ -2,11 +2,12 @@
 
 A small CLI to help manage Markdown content and associated images for Nuxt Content sites.
 
+<img src="res/icon.png" alt="NUCH Icon" width="128" height="128" style="display: block; margin: 1.5rem auto;"/>
+
 ![Static Badge](https://img.shields.io/badge/NUCH-black?style=for-the-badge&logo=markdown)
 [![Crates.io Version](https://img.shields.io/crates/v/nuch?style=for-the-badge&logo=rust&labelColor=black&color=black)](https://crates.io/crates/nuch)
 
 ![GitHub deployments](https://img.shields.io/github/deployments/rivethorn/nuch/production?style=for-the-badge&logo=github&label=GitHub%20Action&labelColor=black)
-
 
 ## Quick start
 
