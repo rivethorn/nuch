@@ -23,7 +23,7 @@ or you can install prebuilt binaries via shell script
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/rivethorn/nuch/releases/download/v1.0.1/nuch-installer.sh | sh
 ```
 
-You can also donwload the binary from [Releases](https://github.com/rivethorn/nuch/releases)
+You can also donwload the binary from [Releases](https://github.com/rivethorn/nuch/releases/latest)
 
 ### Build from source
 
