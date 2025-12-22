@@ -51,8 +51,10 @@ nuch publish
 nuch delete
 ```
 
-> !WARNING
-> The tool **requires a valid config file** at XDG_CONFIG_HOME/nuch/config.toml or ~/.config/nuch/config.toml. Use `--config` to generate a sample.
+> [!WARNING]
+> The tool **requires a valid config file** at `XDG_CONFIG_HOME/nuch/config.toml` or `~/.config/nuch/config.toml`.
+> 
+> Use `--config` to generate a sample.
 
 ## Config file (TOML)
 
