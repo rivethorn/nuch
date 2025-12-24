@@ -22,7 +22,7 @@ pub struct CollectionConfig {
 pub struct Config {
     pub working: WorkingConfig,
     #[serde(default)]
-    pub collections: Vec<CollectionConfig>,
+    pub collection: Vec<CollectionConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -94,7 +94,7 @@ pub fn load_config(generate: bool) -> Result<Option<AppPaths>> {
                     files: "Documents/writings".to_string(),
                     images: Some("Documents/writings/images".to_string()),
                 },
-                collections: vec![
+                collection: vec![
                     CollectionConfig {
                         name: "writing".to_string(),
                         files: "your-site/content".to_string(),
@@ -163,7 +163,7 @@ pub fn load_config(generate: bool) -> Result<Option<AppPaths>> {
     let mut seen_names = std::collections::HashSet::new();
     let mut collection_paths: Vec<CollectionPaths> = Vec::new();
 
-    for col in &cfg.collections {
+    for col in &cfg.collection {
         if col.name.trim().is_empty() {
             errs.push("A collection has an empty 'name' field".to_string());
             continue;
