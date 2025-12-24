@@ -6,19 +6,39 @@ use std::path::PathBuf;
 use std::{env::home_dir, path::Path};
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct WorkingConfig {
+    pub files: String,
+    pub images: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CollectionConfig {
+    pub name: String,
+    pub files: String,
+    pub images: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
-    pub working_dir: String,
-    pub publishing_dir: String,
-    pub working_images_dir: Option<String>,
-    pub publishing_images_dir: Option<String>,
+    pub working: WorkingConfig,
+    #[serde(default)]
+    pub collections: Vec<CollectionConfig>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CollectionPaths {
+    pub name: String,
+    pub files: PathBuf,
+    pub images: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
 pub struct AppPaths {
-    pub ready: PathBuf,
-    pub published: PathBuf,
+    // working area (local drafts)
+    pub working_files: PathBuf,
     pub working_images: Option<PathBuf>,
-    pub publishing_images: Option<PathBuf>,
+    // collections (publishing targets)
+    pub collections: Vec<CollectionPaths>,
 }
 
 pub fn config_file_path() -> Option<PathBuf> {
@@ -68,11 +88,24 @@ pub fn load_config(generate: bool) -> Result<Option<AppPaths>> {
         if config_path.exists() {
             println!("Config already exists at {}", config_path.display());
         } else {
+            // sample config
             let sample = Config {
-                working_dir: "Documents/writings".to_string(),
-                publishing_dir: "your-site/content".to_string(),
-                working_images_dir: Some("Documents/writings/images".to_string()),
-                publishing_images_dir: Some("your-site/public/images".to_string()),
+                working: WorkingConfig {
+                    files: "Documents/writings".to_string(),
+                    images: Some("Documents/writings/images".to_string()),
+                },
+                collections: vec![
+                    CollectionConfig {
+                        name: "writing".to_string(),
+                        files: "your-site/content".to_string(),
+                        images: Some("your-site/public/images".to_string()),
+                    },
+                    CollectionConfig {
+                        name: "blogs".to_string(),
+                        files: "your-site/content/blogs".to_string(),
+                        images: None,
+                    },
+                ],
             };
             let toml_str = toml::to_string_pretty(&sample)?;
             let mut f = fs::File::create(&config_path)?;
@@ -94,49 +127,83 @@ pub fn load_config(generate: bool) -> Result<Option<AppPaths>> {
     let cfg: Config = toml::from_str(&s)
         .map_err(|e| anyhow::anyhow!("Failed to parse config {}: {}", config_path.display(), e))?;
 
-    if cfg.working_dir.trim().is_empty() {
-        return Err(anyhow::anyhow!("'working_dir' in config is empty."));
-    }
-    if cfg.publishing_dir.trim().is_empty() {
-        return Err(anyhow::anyhow!("'publishing_dir' in config is empty."));
+    // Validate working section
+    if cfg.working.files.trim().is_empty() {
+        return Err(anyhow::anyhow!("'working.files' in config is empty."));
     }
 
-    let ready_path = resolve_dir(&cfg.working_dir);
-    let published_path = resolve_dir(&cfg.publishing_dir);
+    // Resolve working paths
+    let working_files_path = resolve_dir(&cfg.working.files);
+    let working_images_path = cfg.working.images.as_ref().map(|s| resolve_dir(s));
 
-    let working_images = cfg.working_images_dir.as_ref().map(|s| resolve_dir(s));
-    let publishing_images = cfg.publishing_images_dir.as_ref().map(|s| resolve_dir(s));
-
-    // Validate markdown dirs
+    // Validate working dir exists and contains markdown
     let mut errs: Vec<String> = Vec::new();
-    if !super::fs::dir_has_markdown(&ready_path).unwrap_or(false) {
+    if !working_files_path.is_dir() {
         errs.push(format!(
-            "No Markdown files found in working_dir: {}",
-            ready_path.display()
+            "working.files does not exist or is not a directory: {}",
+            working_files_path.display()
         ));
-    }
-    if !super::fs::dir_has_markdown(&published_path).unwrap_or(false) {
+    } else if !super::fs::dir_has_markdown(&working_files_path).unwrap_or(false) {
         errs.push(format!(
-            "No Markdown files found in publishing_dir: {}",
-            published_path.display()
+            "No Markdown files found in working.files: {}",
+            working_files_path.display()
         ));
     }
 
-    if let Some(p) = &working_images {
+    if let Some(p) = &working_images_path {
         if !p.is_dir() {
             errs.push(format!(
-                "working_images_dir does not exist or is not a directory: {}",
+                "working.images does not exist or is not a directory: {}",
                 p.display()
             ));
         }
     }
-    if let Some(p) = &publishing_images {
-        if !p.is_dir() {
+
+    // Validate collections
+    let mut seen_names = std::collections::HashSet::new();
+    let mut collection_paths: Vec<CollectionPaths> = Vec::new();
+
+    for col in &cfg.collections {
+        if col.name.trim().is_empty() {
+            errs.push("A collection has an empty 'name' field".to_string());
+            continue;
+        }
+        if !seen_names.insert(col.name.clone()) {
+            errs.push(format!("Duplicate collection name: {}", col.name));
+            continue;
+        }
+
+        if col.files.trim().is_empty() {
+            errs.push(format!("Collection '{}' has empty 'files' path", col.name));
+            continue;
+        }
+
+        let files_path = resolve_dir(&col.files);
+        let images_path = col.images.as_ref().map(|s| resolve_dir(s));
+
+        if !files_path.is_dir() {
             errs.push(format!(
-                "publishing_images_dir does not exist or is not a directory: {}",
-                p.display()
+                "Collection '{}' files path does not exist or is not a directory: {}",
+                col.name,
+                files_path.display()
             ));
         }
+
+        if let Some(p) = &images_path {
+            if !p.is_dir() {
+                errs.push(format!(
+                    "Collection '{}' images path does not exist or is not a directory: {}",
+                    col.name,
+                    p.display()
+                ));
+            }
+        }
+
+        collection_paths.push(CollectionPaths {
+            name: col.name.clone(),
+            files: files_path,
+            images: images_path,
+        });
     }
 
     if !errs.is_empty() {
@@ -144,9 +211,8 @@ pub fn load_config(generate: bool) -> Result<Option<AppPaths>> {
     }
 
     Ok(Some(AppPaths {
-        ready: ready_path,
-        published: published_path,
-        working_images,
-        publishing_images,
+        working_files: working_files_path,
+        working_images: working_images_path,
+        collections: collection_paths,
     }))
 }

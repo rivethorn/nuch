@@ -63,18 +63,28 @@ nuch delete
 The config describes your working and publishing directories and optional image directories. Example sample written by `--config`:
 
 ```toml
-working_dir = "Documents/writings"
-publishing_dir = "your-site/content"
-working_images_dir = "Documents/writings/images"
-publishing_images_dir = "your-site/public/images"
+[working]
+files = "Documents/writings"
+images = "Documents/writings/images"
+
+[[collections]]
+name = "writing"
+files = "your-site/content"
+images = "your-site/public/images"
+
+[[collections]]
+name = "blogs"
+files = "your-site/content/blogs"
+# images omitted — optional
 ```
 
-- **working_dir** (required): directory containing your drafts/ready-for-publish Markdown files.
-- **publishing_dir** (required): your predefined collection, usually inside `content` directory (where published markdown should be copied).
-- **working_images_dir** (optional): directory holding images referenced by your working markdown.
-- **publishing_images_dir** (optional): directory under the site where images are stored.
+- **working files** (required): directory containing your drafts/ready-for-publish Markdown files.
+- **working images** (optional): directory holding images referenced by your working markdown.
+- **collection name** (required): unique name for the collection (e.g., "content", "writing").
+- **collection files** (required): your predefined collection directory, usually inside `content` directory (where published markdown should be copied).
+- **collection images** (optional): directory under the site where images are stored.
 
-The tool validates that `working_dir` and `publishing_dir` exist and contain at least one `.md` file.
+The tool validates that `working` and `collections` exist, and that `working` contains at least one `.md` file.
 
 ## Development notes
 
