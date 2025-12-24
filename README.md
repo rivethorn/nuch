@@ -98,6 +98,10 @@ The tool validates that `working` and `collections` exist, and that `working` co
 
 - Code style: Rust 2024 edition, uses `clap` for CLI and `inquire` for interactive prompts.
 
+## To-DO
+
+- [ ] Add support for other file formats.
+
 ## Contributing
 
 Open a PR or issue for bug fixes or feature ideas. Add tests for any changes that touch behavior.
