@@ -67,12 +67,12 @@ The config describes your working and publishing directories and optional image 
 files = "Documents/writings"
 images = "Documents/writings/images"
 
-[[collections]]
+[[collection]]
 name = "writing"
 files = "your-site/content"
 images = "your-site/public/images"
 
-[[collections]]
+[[collection]]
 name = "blogs"
 files = "your-site/content/blogs"
 # images omitted — optional
