@@ -1,6 +1,6 @@
 use anyhow::Result;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub fn dir_has_markdown(dir: &std::path::Path) -> Result<bool, std::io::Error> {
     if !dir.is_dir() {
@@ -18,7 +18,7 @@ pub fn dir_has_markdown(dir: &std::path::Path) -> Result<bool, std::io::Error> {
 
 pub fn matching_images_for_stem(
     stem_lower: &str,
-    dir: &std::path::Path,
+    dir: &Path,
 ) -> Result<Vec<PathBuf>, std::io::Error> {
     let mut images = Vec::new();
     if !dir.is_dir() {
