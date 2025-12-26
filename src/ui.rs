@@ -36,6 +36,7 @@ pub fn list_blogs(dir: &Path, exclude_dir: Option<&CollectionPaths>) -> Result<O
         println!("No supported files found.");
         return Ok(None);
     }
+    content_files.sort();
 
     let names: Vec<_> = content_files
         .iter()
