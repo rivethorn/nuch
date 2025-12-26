@@ -84,7 +84,7 @@ files = "your-site/content/blogs"
 - **collection files** (required): your predefined collection directory, usually inside `content` directory (where published markdown should be copied).
 - **collection images** (optional): directory under the site where images are stored.
 
-The tool validates that `working` and `collections` exist, and that `working` contains at least one `.md` file.
+The tool validates that `working` and `collections` exist, and that `working` contains at least one file that's supported by Nuxt Content.
 
 ## Development notes
 
@@ -97,10 +97,6 @@ The tool validates that `working` and `collections` exist, and that `working` co
   - `src/ui.rs` — user prompts & listing
 
 - Code style: Rust 2024 edition, uses `clap` for CLI and `inquire` for interactive prompts.
-
-## To-DO
-
-- [ ] Add support for other file formats.
 
 ## Contributing
 
