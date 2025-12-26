@@ -150,13 +150,13 @@ pub fn load_config(generate: bool) -> Result<Option<AppPaths>> {
         ));
     }
 
-    if let Some(p) = &working_images_path {
-        if !p.is_dir() {
-            errs.push(format!(
-                "working.images does not exist or is not a directory: {}",
-                p.display()
-            ));
-        }
+    if let Some(p) = &working_images_path
+        && !p.is_dir()
+    {
+        errs.push(format!(
+            "working.images does not exist or is not a directory: {}",
+            p.display()
+        ));
     }
 
     // Validate collections
@@ -189,14 +189,14 @@ pub fn load_config(generate: bool) -> Result<Option<AppPaths>> {
             ));
         }
 
-        if let Some(p) = &images_path {
-            if !p.is_dir() {
-                errs.push(format!(
-                    "Collection '{}' images path does not exist or is not a directory: {}",
-                    col.name,
-                    p.display()
-                ));
-            }
+        if let Some(p) = &images_path
+            && !p.is_dir()
+        {
+            errs.push(format!(
+                "Collection '{}' images path does not exist or is not a directory: {}",
+                col.name,
+                p.display()
+            ));
         }
 
         collection_paths.push(CollectionPaths {

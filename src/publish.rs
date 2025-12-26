@@ -214,11 +214,11 @@ pub fn delete_selected(
 
     // Delete files
     for p in &to_delete {
-        if p.exists() {
-            if let Err(e) = fs::remove_file(p) {
-                restore_and_cleanup(&backups, &backup_dir)?;
-                return Err(anyhow::anyhow!("Failed to remove {}: {}", p.display(), e));
-            }
+        if p.exists()
+            && let Err(e) = fs::remove_file(p)
+        {
+            restore_and_cleanup(&backups, &backup_dir)?;
+            return Err(anyhow::anyhow!("Failed to remove {}: {}", p.display(), e));
         }
     }
 

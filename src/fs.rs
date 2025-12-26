@@ -78,10 +78,10 @@ pub fn remove_files(paths: &[PathBuf]) -> Result<()> {
 pub fn rollback_remove_files(created: &[PathBuf]) -> Vec<String> {
     let mut failures = Vec::new();
     for f in created {
-        if f.exists() {
-            if let Err(e) = fs::remove_file(f) {
-                failures.push(format!("Failed to remove {}: {}", f.display(), e));
-            }
+        if f.exists()
+            && let Err(e) = fs::remove_file(f)
+        {
+            failures.push(format!("Failed to remove {}: {}", f.display(), e));
         }
     }
     failures

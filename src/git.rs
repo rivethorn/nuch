@@ -1,13 +1,13 @@
 use anyhow::Result;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
-pub fn get_site_root(published: &PathBuf) -> PathBuf {
+pub fn get_site_root(published: &Path) -> PathBuf {
     for anc in published.ancestors() {
-        if let Some(name) = anc.file_name().and_then(|s| s.to_str()) {
-            if name == "content" {
-                return anc.parent().unwrap().to_path_buf();
-            }
+        if let Some(name) = anc.file_name().and_then(|s| s.to_str())
+            && name == "content"
+        {
+            return anc.parent().unwrap().to_path_buf();
         }
     }
     published.parent().unwrap().to_path_buf()

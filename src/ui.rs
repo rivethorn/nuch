@@ -10,7 +10,7 @@ use crate::config::CollectionPaths;
 pub fn list_blogs(dir: &Path, exclude_dir: Option<&CollectionPaths>) -> Result<Option<PathBuf>> {
     let mut markdown_files: Vec<_> = Vec::new();
     if dir.is_dir() {
-        for entry in read_dir(&dir)? {
+        for entry in read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
             if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {

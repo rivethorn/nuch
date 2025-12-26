@@ -37,23 +37,22 @@ fn main() -> Result<()> {
 
     match args.command {
         Some(Command::Publish) => {
-            if let Some(collection) = ui::list_colletctions(app_paths.collections)? {
-                if let Some(selected) = ui::list_blogs(&app_paths.working_files, Some(&collection))?
-                {
-                    publish::publish_selected(selected, collection, app_paths.working_images)?;
-                }
+            if let Some(collection) = ui::list_colletctions(app_paths.collections)?
+                && let Some(selected) = ui::list_blogs(&app_paths.working_files, Some(&collection))?
+            {
+                publish::publish_selected(selected, collection, app_paths.working_images)?;
             }
         }
         Some(Command::Delete) => {
-            if let Some(collection) = ui::list_colletctions(app_paths.collections)? {
-                if let Some(selected) = ui::list_blogs(&collection.files, None)? {
-                    publish::delete_selected(
-                        selected,
-                        collection,
-                        app_paths.working_files,
-                        app_paths.working_images,
-                    )?;
-                }
+            if let Some(collection) = ui::list_colletctions(app_paths.collections)?
+                && let Some(selected) = ui::list_blogs(&collection.files, None)?
+            {
+                publish::delete_selected(
+                    selected,
+                    collection,
+                    app_paths.working_files,
+                    app_paths.working_images,
+                )?;
             }
         }
         None => {
