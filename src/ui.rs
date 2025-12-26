@@ -82,24 +82,24 @@ pub fn list_collections(cols: Vec<CollectionPaths>) -> Result<Option<CollectionP
     }
 
     let collection_names: Vec<_> = cols.iter().map(|c| c.name.clone()).collect();
-
     let selection = Select::new("First, select your collection:", collection_names)
         .with_vim_mode(true)
         .without_filtering()
         .with_help_message("hjkl to move, enter, esc to quit")
-        .prompt()?;
+        .prompt_skippable()?;
 
-    // let selected_name = match selection {
-    //     Some(name) => name,
-    //     None => {
-    //         println!("Cancelled.");
-    //         return Ok(None);
-    //     }
+    let selected_name = match selection {
+        Some(name) => name,
+        None => {
+            println!("Cancelled.");
+            return Ok(None);
+        }
+    };
     // };
 
     let selected_index = cols
         .iter()
-        .position(|c| c.name == selection)
+        .position(|c| c.name == selected_name)
         .expect("Selected collection should exist");
 
     Ok(Some(cols[selected_index].clone()))
