@@ -97,7 +97,9 @@ pub fn publish_selected(
     }
 
     let site_root = git_helpers::get_site_root(&dest_path.files);
-    if let Err(e) = git_helpers::run_git_steps(&site_root, &format!("Add {} to blog", filename)) {
+    if let Err(e) =
+        git_helpers::run_git_steps(&site_root, &format!("Add {} to blog", filename), &created)
+    {
         let failures = fs_helpers::rollback_remove_files(&created);
         if failures.is_empty() {
             return Err(e);
@@ -224,9 +226,11 @@ pub fn delete_selected(
 
     // Run git steps
     let site_root = git_helpers::get_site_root(&path.files);
-    if let Err(e) =
-        git_helpers::run_git_steps(&site_root, &format!("Remove {} from blog", filename))
-    {
+    if let Err(e) = git_helpers::run_git_steps(
+        &site_root,
+        &format!("Remove {} from blog", filename),
+        &to_delete,
+    ) {
         if let Err(rest_err) = fs_helpers::restore_from_backups(&backups) {
             eprintln!("Failed to restore from backups: {}", rest_err);
         }
@@ -238,8 +242,12 @@ pub fn delete_selected(
     println!("Deleted {} and corresponding images", filename);
     Ok(())
 }
-
-fn cleanup_and_abort(_backup_dir: &PathBuf, _backups: &[(PathBuf, PathBuf)]) -> Result<()> {
+fn cleanup_and_abort(backup_dir: &PathBuf, backups: &[(PathBuf, PathBuf)]) -> Result<()> {
+    // remove temp backups to avoid clutter on cancel
+    for (_, backup) in backups {
+        let _ = fs::remove_file(backup);
+    }
+    fs_helpers::cleanup_backup_dir(backup_dir);
     // no-op for now; leaving for symmetry
     Ok(())
 }
