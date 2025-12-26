@@ -73,7 +73,7 @@ pub fn list_blogs(dir: &Path, exclude_dir: Option<&CollectionPaths>) -> Result<O
     Ok(Some(content_files[selected_index].clone()))
 }
 
-pub fn list_colletctions(cols: Vec<CollectionPaths>) -> Result<Option<CollectionPaths>> {
+pub fn list_collections(cols: Vec<CollectionPaths>) -> Result<Option<CollectionPaths>> {
     // if there is only one collection, select it automatically
     if cols.len() == 1 {
         return Ok(Some(cols[0].clone()));
