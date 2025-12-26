@@ -10,21 +10,22 @@ use crate::config::CollectionPaths;
 pub fn list_blogs(dir: &Path, exclude_dir: Option<&CollectionPaths>) -> Result<Option<PathBuf>> {
     let mut content_files: Vec<_> = Vec::new();
     let supported_exts = ["md", "yaml", "yml", "json", "csv"];
-    
+
     if dir.is_dir() {
         for entry in read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
-            
+
             let is_supported = path.is_file()
-                && path.extension()
+                && path
+                    .extension()
                     .and_then(|s| s.to_str())
                     .is_some_and(|ext| supported_exts.contains(&ext));
-            
+
             let is_excluded = exclude_dir
                 .map(|ex| ex.files.join(path.file_name().unwrap()).exists())
                 .unwrap_or(false);
-            
+
             if is_supported && !is_excluded {
                 content_files.push(path);
             }
