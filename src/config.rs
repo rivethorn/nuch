@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
-use std::{env::home_dir, path::Path};
+use std::path::Path;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WorkingConfig {
@@ -41,24 +41,57 @@ pub struct AppPaths {
     pub collections: Vec<CollectionPaths>,
 }
 
+#[cfg(windows)]
 pub fn config_file_path() -> Option<PathBuf> {
-    if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
-        return Some(PathBuf::from(xdg).join("nuch").join("config.toml"));
+    // On Windows, use LOCALAPPDATA (typically C:\Users\<username>\AppData\Local)
+    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+        return Some(PathBuf::from(local_app_data).join("nuch").join("config.toml"));
     }
 
-    if let Some(home) = home_dir() {
-        return Some(home.join(".config").join("nuch").join("config.toml"));
+    // Fallback to USERPROFILE if LOCALAPPDATA is not set
+    if let Ok(user_profile) = std::env::var("USERPROFILE") {
+        return Some(PathBuf::from(user_profile).join("AppData").join("Local").join("nuch").join("config.toml"));
     }
 
     None
 }
 
+#[cfg(not(windows))]
+pub fn config_file_path() -> Option<PathBuf> {
+    // On Unix-like systems, use XDG_CONFIG_HOME or fallback to ~/.config
+    if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
+        return Some(PathBuf::from(xdg).join("nuch").join("config.toml"));
+    }
+
+    if let Ok(home) = std::env::var("HOME") {
+        return Some(PathBuf::from(home).join(".config").join("nuch").join("config.toml"));
+    }
+
+    None
+}
+
+#[cfg(windows)]
 pub fn resolve_dir(dir: &str) -> PathBuf {
     let p = Path::new(dir);
     if p.is_absolute() {
         p.to_path_buf()
     } else {
-        let home = home_dir().unwrap();
+        // On Windows, use USERPROFILE as the home directory
+        let home = std::env::var("USERPROFILE")
+            .expect("USERPROFILE environment variable not set");
+        Path::new(&home).join(dir)
+    }
+}
+
+#[cfg(not(windows))]
+pub fn resolve_dir(dir: &str) -> PathBuf {
+    let p = Path::new(dir);
+    if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        // On Unix-like systems, use HOME environment variable
+        let home = std::env::var("HOME")
+            .expect("HOME environment variable not set");
         Path::new(&home).join(dir)
     }
 }

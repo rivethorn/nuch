@@ -18,13 +18,19 @@ You can install via `cargo`:
 cargo install nuch
 ```
 
-or you can install prebuilt binaries via shell script
+or you can install prebuilt binaries via shell script:
 
+**Unix/Linux/macOS**:
 ```bash
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/rivethorn/nuch/releases/download/v1.0.1/nuch-installer.sh | sh
 ```
 
-You can also donwload the binary from [Releases](https://github.com/rivethorn/nuch/releases/latest)
+**Windows (PowerShell)**:
+```powershell
+irm https://github.com/rivethorn/nuch/releases/download/v1.0.1/nuch-installer.ps1 | iex
+```
+
+You can also download the binary from [Releases](https://github.com/rivethorn/nuch/releases/latest)
 
 ### Build from source
 
@@ -39,7 +45,9 @@ cargo build --release
 # Run (shows help)
 cargo run -- --help
 
-# Create a sample config (writes to XDG_CONFIG_HOME/nuch/config.toml or ~/.config/nuch/config.toml)
+# Create a sample config
+# Unix/Linux/macOS: writes to XDG_CONFIG_HOME/nuch/config.toml or ~/.config/nuch/config.toml
+# Windows: writes to %LOCALAPPDATA%\nuch\config.toml (typically C:\Users\<username>\AppData\Local\nuch\config.toml)
 cargo run -- --config
 ```
 
@@ -54,7 +62,9 @@ nuch delete
 ```
 
 > [!WARNING]
-> The tool **requires a valid config file** at `XDG_CONFIG_HOME/nuch/config.toml` or `~/.config/nuch/config.toml`.
+> The tool **requires a valid config file**:
+> - **Unix/Linux/macOS**: `XDG_CONFIG_HOME/nuch/config.toml` or `~/.config/nuch/config.toml`
+> - **Windows**: `%LOCALAPPDATA%\nuch\config.toml` (typically `C:\Users\<username>\AppData\Local\nuch\config.toml`)
 > 
 > Use `--config` to generate a sample.
 
