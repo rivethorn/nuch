@@ -9,6 +9,12 @@ repository = "https://github.com/rivethorn/nuch"
 homepage = "https://github.com/rivethorn/nuch"
 readme = "README.md"
 
+[package.metadata.wix]
+upgrade-guid = "43DF5BF4-2D0F-4F09-81E9-D0130648862D"
+path-guid = "38063E73-FCF9-4465-86B1-4EC669ED2628"
+license = false
+eula = false
+
 
 [dependencies]
 inquire = "0.9.1"
