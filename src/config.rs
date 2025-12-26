@@ -143,9 +143,9 @@ pub fn load_config(generate: bool) -> Result<Option<AppPaths>> {
             "working.files does not exist or is not a directory: {}",
             working_files_path.display()
         ));
-    } else if !super::fs::dir_has_markdown(&working_files_path).unwrap_or(false) {
+    } else if !super::fs::dir_has_supported_files(&working_files_path).unwrap_or(false) {
         errs.push(format!(
-            "No Markdown files found in working.files: {}",
+            "No supported files (.md, .yaml, .yml, .json, .csv) found in working.files: {}",
             working_files_path.display()
         ));
     }

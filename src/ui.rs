@@ -8,7 +8,9 @@ use std::{
 use crate::config::CollectionPaths;
 
 pub fn list_blogs(dir: &Path, exclude_dir: Option<&CollectionPaths>) -> Result<Option<PathBuf>> {
-    let mut markdown_files: Vec<_> = Vec::new();
+    let mut content_files: Vec<_> = Vec::new();
+    let supported_exts = ["md", "yaml", "yml", "json", "csv"];
+    
     if dir.is_dir() {
         for entry in read_dir(dir)? {
             let entry = entry?;
@@ -25,12 +27,12 @@ pub fn list_blogs(dir: &Path, exclude_dir: Option<&CollectionPaths>) -> Result<O
         }
     }
 
-    if markdown_files.is_empty() {
-        println!("No Markdown files found.");
+    if content_files.is_empty() {
+        println!("No supported files found.");
         return Ok(None);
     }
 
-    let names: Vec<_> = markdown_files
+    let names: Vec<_> = content_files
         .iter()
         .map(|p| {
             p.file_name()
@@ -40,7 +42,7 @@ pub fn list_blogs(dir: &Path, exclude_dir: Option<&CollectionPaths>) -> Result<O
         })
         .collect();
 
-    let selection = Select::new("Select a Markdown file:", names)
+    let selection = Select::new("Select a file:", names)
         .with_vim_mode(true)
         .without_filtering()
         .with_help_message("hjkl to move, enter, esc to quit")
@@ -54,7 +56,7 @@ pub fn list_blogs(dir: &Path, exclude_dir: Option<&CollectionPaths>) -> Result<O
         }
     };
 
-    let selected_index = markdown_files
+    let selected_index = content_files
         .iter()
         .position(|p| {
             p.file_name()
@@ -64,7 +66,7 @@ pub fn list_blogs(dir: &Path, exclude_dir: Option<&CollectionPaths>) -> Result<O
         })
         .expect("Selected file should exist");
 
-    Ok(Some(markdown_files[selected_index].clone()))
+    Ok(Some(content_files[selected_index].clone()))
 }
 
 pub fn list_colletctions(cols: Vec<CollectionPaths>) -> Result<Option<CollectionPaths>> {

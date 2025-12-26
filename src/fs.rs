@@ -2,14 +2,18 @@ use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub fn dir_has_markdown(dir: &std::path::Path) -> Result<bool, std::io::Error> {
+pub fn dir_has_supported_files(dir: &std::path::Path) -> Result<bool, std::io::Error> {
     if !dir.is_dir() {
         return Ok(false);
     }
+    let supported_exts = ["md", "yaml", "yml", "json", "csv"];
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
+        if path.is_file()
+            && let Some(ext) = path.extension().and_then(|s| s.to_str())
+            && supported_exts.contains(&ext)
+        {
             return Ok(true);
         }
     }
@@ -137,14 +141,23 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn dir_has_markdown_detects_markdown() {
+    fn dir_has_supported_files_detects_files() {
         let td = tempdir().unwrap();
-        assert!(!dir_has_markdown(td.path()).unwrap());
+        assert!(!dir_has_supported_files(td.path()).unwrap());
 
+        // Test markdown
         let md = td.path().join("post.md");
         let mut f = File::create(&md).unwrap();
         writeln!(f, "# hello").unwrap();
-        assert!(dir_has_markdown(td.path()).unwrap());
+        assert!(dir_has_supported_files(td.path()).unwrap());
+
+        // Test other formats
+        let td2 = tempdir().unwrap();
+        for ext in ["yaml", "yml", "json", "csv"] {
+            let file = td2.path().join(format!("data.{}", ext));
+            File::create(&file).unwrap();
+            assert!(dir_has_supported_files(td2.path()).unwrap());
+        }
     }
 
     #[test]
