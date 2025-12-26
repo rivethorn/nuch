@@ -176,11 +176,19 @@ pub fn load_config(generate: bool) -> Result<Option<AppPaths>> {
             "working.files does not exist or is not a directory: {}",
             working_files_path.display()
         ));
-    } else if !super::fs::dir_has_supported_files(&working_files_path).unwrap_or(false) {
-        errs.push(format!(
-            "No supported files (.md, .yaml, .yml, .json, .csv) found in working.files: {}",
-            working_files_path.display()
-        ));
+    } else {
+        match super::fs::dir_has_supported_files(&working_files_path) {
+            Ok(true) => {}
+            Ok(false) => errs.push(format!(
+                "No supported files (.md, .yaml, .yml, .json, .csv) found in working.files: {}",
+                working_files_path.display()
+            )),
+            Err(e) => errs.push(format!(
+                "Failed to read working.files {}: {}",
+                working_files_path.display(),
+                e
+            )),
+        }
     }
 
     if let Some(p) = &working_images_path
