@@ -98,13 +98,13 @@ files = "your-site/content/blogs"
 # images omitted — optional
 ```
 
-- **working files** (required): directory containing your drafts/ready-for-publish Markdown files.
-- **working images** (optional): directory holding images referenced by your working markdown.
+- **working files** (required): directory containing your drafts/ready-for-publish supported files.
+- **working images** (optional): directory holding images referenced by your working Content file.
 - **collection name** (required): unique name for the collection (e.g., "content", "writing").
-- **collection files** (required): your predefined collection directory, usually inside `content` directory (where published markdown should be copied).
+- **collection files** (required): your predefined collection directory, usually inside `content` directory (where published files should be copied).
 - **collection images** (optional): directory under the site where images are stored.
 
-The tool validates that `working` and `collections` exist, and that `working` contains at least one file that's supported by Nuxt Content.
+The tool validates that `working` and `collection` exist, and that `working` contains at least one file that's supported by Nuxt Content.
 
 ## Development notes
 
