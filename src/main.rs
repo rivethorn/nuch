@@ -5,9 +5,10 @@ mod publish;
 mod ui;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
+#[command(author, version, about)]
 struct Args {
     /// Generate a sample config file in the config directory if none exists
     #[arg(long = "config")]
@@ -17,7 +18,7 @@ struct Args {
     command: Option<Command>,
 }
 
-#[derive(clap::Subcommand)]
+#[derive(clap::Subcommand, Debug)]
 enum Command {
     /// Publish a selected Markdown file from working to publishing directory
     Publish,
@@ -56,9 +57,9 @@ fn main() -> Result<()> {
             }
         }
         None => {
-            return Err(anyhow::anyhow!(
-                "No command provided. Use 'publish' or 'delete'."
-            ));
+            println!("Error: No command provided. Use 'publish' or 'delete'.\n");
+
+            Args::command().print_help()?;
         }
     }
 
