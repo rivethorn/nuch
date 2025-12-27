@@ -40,37 +40,46 @@ pub fn publish_selected(
             .file_stem()
             .and_then(|s| s.to_str())
             .ok_or_else(|| anyhow::anyhow!("Invalid filename stem"))?;
-        let images = fs_helpers::matching_images_for_stem(&stem.to_lowercase(), &src_images)?;
-        fs::create_dir_all(&dst_images)?;
-        for p in images {
-            let dest_img = dst_images.join(p.file_name().unwrap());
-            if dest_img.exists() {
-                let failures = fs_helpers::rollback_remove_files(&created);
-                if failures.is_empty() {
-                    return Err(anyhow::anyhow!(
-                        "Image already exists at destination {} — aborting",
-                        dest_img.display()
-                    ));
-                } else {
-                    return Err(anyhow::anyhow!(
-                        "Image exists and rollback failures: {}",
-                        failures.join("; ")
-                    ));
+        let stem_lower = stem.to_lowercase();
+        let images = fs_helpers::matching_images_for_stem(&stem_lower, &src_images)?;
+        if images.is_empty() {
+            println!(
+                "No images matching '{}' found in {}",
+                stem,
+                src_images.display()
+            );
+        } else {
+            fs::create_dir_all(&dst_images)?;
+            for p in images {
+                let dest_img = dst_images.join(p.file_name().unwrap());
+                if dest_img.exists() {
+                    let failures = fs_helpers::rollback_remove_files(&created);
+                    if failures.is_empty() {
+                        return Err(anyhow::anyhow!(
+                            "Image already exists at destination {} — aborting",
+                            dest_img.display()
+                        ));
+                    } else {
+                        return Err(anyhow::anyhow!(
+                            "Image exists and rollback failures: {}",
+                            failures.join("; ")
+                        ));
+                    }
                 }
+                fs::copy(&p, &dest_img).map_err(|e| {
+                    let failures = fs_helpers::rollback_remove_files(&created);
+                    if failures.is_empty() {
+                        anyhow::anyhow!("Failed to copy image {}: {}", p.display(), e)
+                    } else {
+                        anyhow::anyhow!(
+                            "Failed to copy image {}; rollback failures: {}",
+                            p.display(),
+                            failures.join("; ")
+                        )
+                    }
+                })?;
+                created.push(dest_img);
             }
-            fs::copy(&p, &dest_img).map_err(|e| {
-                let failures = fs_helpers::rollback_remove_files(&created);
-                if failures.is_empty() {
-                    anyhow::anyhow!("Failed to copy image {}: {}", p.display(), e)
-                } else {
-                    anyhow::anyhow!(
-                        "Failed to copy image {}; rollback failures: {}",
-                        p.display(),
-                        failures.join("; ")
-                    )
-                }
-            })?;
-            created.push(dest_img);
         }
     }
 
