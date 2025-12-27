@@ -2,6 +2,8 @@
 
 A small CLI to help manage Markdown content and associated images for Nuxt Content sites.
 
+Supports all file types handled by Nuxt Content (Markdown, YAML, JSON, CSV).
+
 <p align="center">
     <img src="res/icon.png" alt="NUCH Icon" width="128" height="128"/>
 </p>
