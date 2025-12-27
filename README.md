@@ -2,7 +2,9 @@
 
 A small CLI to help manage Markdown content and associated images for Nuxt Content sites.
 
-<img src="res/icon.png" alt="NUCH Icon" width="128" height="128"/>
+<p align="center">
+    <img src="res/icon.png" alt="NUCH Icon" width="128" height="128"/>
+</p>
 
 [![Static Badge](https://img.shields.io/badge/NUCH%20Docs-black?style=for-the-badge&logo=markdown)](https://nuch.vercel.app)
 
@@ -12,7 +14,13 @@ A small CLI to help manage Markdown content and associated images for Nuxt Conte
 
 ## Quick start
 
-You can install via `cargo`:
+You can install via `homebrew`:
+
+```bash
+brew install rivethorn/tap/nuch
+```
+
+You can also install via `cargo`:
 
 ```bash
 cargo install nuch
@@ -22,12 +30,12 @@ or you can install prebuilt binaries via shell script:
 
 **Unix/Linux/macOS**:
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/rivethorn/nuch/releases/download/v1.0.1/nuch-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/rivethorn/nuch/releases/download/v1.3.5/nuch-installer.sh | sh
 ```
 
 **Windows (PowerShell)**:
 ```powershell
-irm https://github.com/rivethorn/nuch/releases/download/v1.0.1/nuch-installer.ps1 | iex
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/rivethorn/nuch/releases/download/v1.3.5/nuch-installer.ps1 | iex"
 ```
 
 You can also download the binary from [Releases](https://github.com/rivethorn/nuch/releases/latest)
@@ -54,7 +62,7 @@ cargo run -- --config
 ## Typical usage:
 
 ```bash
-# Publish (interactive): selects a markdown file from your configured working dir
+# Publish (interactive): selects a supported file from your configured working dir
 nuch publish
 
 # Delete (interactive): select a published post to remove
